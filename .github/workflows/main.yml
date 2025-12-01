@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ----------------------------------------------------
-  # 1. Rýchly test načítania appky (headless (prebehne do 10 sekúnd)
-  # ----------------------------------------------------
+  # ────────────────────────────────
+  # 1. Headless test (prebehne bleskovo)
+  # ────────────────────────────────
   test_headless:
     runs-on: ubuntu-latest
     steps:
@@ -21,42 +21,53 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install system dependencies
+      - name: Install ALL needed system packages (jediný riadok, ktorý zabije 99 % chýb)
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y \
+            build-essential git zip unzip \
+            python3-dev python3-pip python3-setuptools \
+            libffi-dev libssl-dev \
             libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            libmtdev-dev xclip xsel  # tieto dve veci zabijú ten nekonečný clipboard loop
+            libmtdev-dev \
+            libgl1-mesa-dev libgles2-mesa-dev \
+            xclip xsel \
+            libcairo2-dev \           # ← pycairo cez Meson
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            autoconf automake libtool pkg-config
 
-      - name: Install Kivy master + KivyMD 2.x dev
+      - name: Install Kivy (master) + KivyMD dev
         run: |
-          pip install --upgrade pip
-          pip install "kivy[base]" --pre --no-cache-dir
-          pip install https://github.com/kivy/kivy/archive/master.zip
-          pip install git+https://github.com/kivymd/KivyMD.git@master
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir "kivy[base]" --pre
+          pip install --no-cache-dir https://github.com/kivy/kivy/archive/master.zip
+          pip install --no-cache-dir git+https://github.com/kivymd/KivyMD.git@master
+          # Ak chceš presne 2.0.1.dev0 namiesto najnovšieho master:
+          # pip install --no-cache-dir kivymd==2.0.1.dev0
 
-      - name: Headless test (ukončí sa okamžite)
+      - name: Headless test – skončí okamžite
         run: python main.py
         env:
           KIVY_NO_WINDOW: 1
-          KIVY_CLIPBOARD: dummy      # zabije xclip/xsel pokusy
+          KIVY_CLIPBOARD: dummy
           KIVY_WINDOW: sdl2
-          HOME: /home/runner         # aby sa config.ini správne zapisoval
+          # zabráni hľadaniu xclip/xsel
+          HOME: /home/runner
 
-  # ----------------------------------------------------
-  # 2. Build Android APK cez Buildozer (prebehne do 25–35 min)
-  # ----------------------------------------------------
+  # ────────────────────────────────
+  # 2. Android build (20–30 min, len arm64-v8a)
+  # ────────────────────────────────
   build_android:
     needs: test_headless
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1   # novšia a rýchlejšia fork (2025)
+      - name: Build APK with newest Buildozer (2025)
+        uses: ArtemSBulgakov/buildozer-action@v1
         with:
           command: buildozer android debug
-          buildozer_version: master                  # najnovší buildozer = menej bugov
+          buildozer_version: master          # najnovší buildozer + python-for-android
           workdir: .
 
       - name: Upload APK
