@@ -1,79 +1,67 @@
-# Názov workflow, ktorý sa zobrazí v GitHub Actions
 name: KivyMD CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch: # Umožňuje manuálne spustenie
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   # ----------------------------------------------------
-  # ÚLOHA 1: Test závislostí a KivyMD inštalácie (v Pythone)
+  # 1. Rýchly test načítania appky (headless (prebehne do 10 sekúnd)
   # ----------------------------------------------------
-  test_dependencies:
+  test_headless:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # ZMENA: Pridaná knižnica libcairo2-dev pre vyriešenie chyby pycairo
-      - name: Install System Dependencies (for Kivy and Cairo)
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            pkg-config \
-            libcairo2-dev # Zabezpečí, že knižnica Cairo je dostupná pre Meson build pycairo
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            libmtdev-dev xclip xsel  # tieto dve veci zabijú ten nekonečný clipboard loop
 
-      - name: Install Kivy and KivyMD (using master branch for dev version)
+      - name: Install Kivy master + KivyMD 2.x dev
         run: |
-          pip install kivy
-          # Inštalácia KivyMD dev verzie priamo z master vetvy
+          pip install --upgrade pip
+          pip install "kivy[base]" --pre --no-cache-dir
+          pip install https://github.com/kivy/kivy/archive/master.zip
           pip install git+https://github.com/kivymd/KivyMD.git@master
 
-      - name: Test Application Loading (KIVY_NO_WINDOW=1)
-        run: |
-          # Spustí kód bez grafického okna, len pre overenie, že sa správne načíta a spracuje KV
-          python main.py
+      - name: Headless test (ukončí sa okamžite)
+        run: python main.py
         env:
           KIVY_NO_WINDOW: 1
+          KIVY_CLIPBOARD: dummy      # zabije xclip/xsel pokusy
+          KIVY_WINDOW: sdl2
+          HOME: /home/runner         # aby sa config.ini správne zapisoval
 
   # ----------------------------------------------------
-  # ÚLOHA 2: Buildozer Android Build (Vyžaduje buildozer.spec)
+  # 2. Build Android APK cez Buildozer (prebehne do 25–35 min)
   # ----------------------------------------------------
-  build_android_apk:
-    # Táto úloha sa spustí len ak predchádzajúci test prebehol úspešne
-    needs: test_dependencies
+  build_android:
+    needs: test_headless
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      
-      # Používame špecializovanú akciu, ktorá spúšťa Buildozer v Docker kontajneri s celým Android SDK
-      - name: Run Buildozer Android Debug Build
-        uses: clyang/buildozer-action@v1
-        with:
-          # Spustenie balenia pre Android (debug verzia)
-          command: buildozer android debug
+      - uses: actions/checkout@v4
 
-      - name: Upload APK Artifact
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1   # novšia a rýchlejšia fork (2025)
+        with:
+          command: buildozer android debug
+          buildozer_version: master                  # najnovší buildozer = menej bugov
+          workdir: .
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          # Buildozer ukladá výsledné súbory do adresára bin/
+          name: KivyMD-Example-APK
           path: bin/*.apk
-          # Uloží artefakt len na 7 dní
-          retention-days: 7
+          retention-days: 14
