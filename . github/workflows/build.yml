@@ -1,8 +1,6 @@
+# Názov workflow, ktorý sa zobrazí v GitHub Actions
+name: KivyMD CI/CD
 
-# Názov tohto workflow, ktorý sa zobrazí v záložke 'Actions' na GitHub-e
-name: KivyMD Test Build
-
-# Kedy sa workflow spustí
 on:
   push:
     branches:
@@ -10,57 +8,65 @@ on:
   pull_request:
     branches:
       - main
-  # Umožní manuálne spustenie z rozhrania GitHub Actions
-  workflow_dispatch:
+  workflow_dispatch: # Umožňuje manuálne spustenie
 
-# Definovanie úloh (jobs)
 jobs:
-  build:
-    # Spustenie na najnovšej verzii Ubuntu
+  # ----------------------------------------------------
+  # ÚLOHA 1: Test závislostí a KivyMD inštalácie (v Pythone)
+  # ----------------------------------------------------
+  test_dependencies:
     runs-on: ubuntu-latest
-    
     steps:
-      # 1. Stiahne kód repozitára
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Nastaví prostredie Python
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
-      # 3. Nainštaluje systémové závislosti pre Kivy
-      - name: Install system dependencies for Kivy
+
+      - name: Install System Dependencies (for Kivy)
         run: |
           sudo apt-get update
-          # Tieto balíčky sú potrebné pre správnu kompiláciu a beh Kivy (OpenGL, SDL2)
-          sudo apt-get install -y \
-            build-essential \
-            pkg-config \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            python3-dev \
-            libgl1-mesa-dev
+          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev pkg-config
 
-      # 4. Nainštaluje Kivy a KivyMD 'dev' verziu
-      - name: Install Kivy and KivyMD (2.0.1 dev from master)
+      - name: Install Kivy and KivyMD (using master branch for dev version)
         run: |
-          # Nainštaluje Kivy cez pip
           pip install kivy
-          # Nainštaluje KivyMD priamo z master vetvy, aby sa zabezpečila najnovšia 'dev' verzia
-          # Ak by si potreboval stabilnú verziu z PyPI, použil by si len: pip install kivymd
+          # Inštalácia KivyMD dev verzie priamo z master vetvy
           pip install git+https://github.com/kivymd/KivyMD.git@master
-          # Voliteľne, nainštaluje Pillow pre prípadné operácie s obrázkami
-          pip install Pillow
 
-      # 5. Spustí test aplikácie (alebo linter/statickú analýzu)
-      - name: Run KivyMD application code test
+      - name: Test Application Loading (KIVY_NO_WINDOW=1)
         run: |
-          # Nastaví premennú prostredia, aby Kivy nespúšťalo grafické okno (žiadny X server v CI)
-          # Týmto sa otestuje, či sa aplikácia správne načíta a spracuje KV kód.
-          KIVY_NO_WINDOW=1 python app.py
+          # Spustí kód bez grafického okna, len pre overenie, že sa správne načíta a spracuje KV
+          python main.py
         env:
           KIVY_NO_WINDOW: 1
+
+  # ----------------------------------------------------
+  # ÚLOHA 2: Buildozer Android Build (Vyžaduje buildozer.spec)
+  # ----------------------------------------------------
+  build_android_apk:
+    # Táto úloha sa spustí len ak predchádzajúci test prebehol úspešne
+    needs: test_dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      # Používame špecializovanú akciu, ktorá spúšťa Buildozer v Docker kontajneri s celým Android SDK
+      - name: Run Buildozer Android Debug Build
+        uses: clyang/buildozer-action@v1
+        with:
+          # Spustenie balenia pre Android (debug verzia)
+          command: buildozer android debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          # Buildozer ukladá výsledné súbory do adresára bin/
+          path: bin/*.apk
+          # Uloží artefakt len na 7 dní
+          retention-days: 7
