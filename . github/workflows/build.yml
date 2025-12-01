@@ -1,1 +1,66 @@
 
+# Názov tohto workflow, ktorý sa zobrazí v záložke 'Actions' na GitHub-e
+name: KivyMD Test Build
+
+# Kedy sa workflow spustí
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  # Umožní manuálne spustenie z rozhrania GitHub Actions
+  workflow_dispatch:
+
+# Definovanie úloh (jobs)
+jobs:
+  build:
+    # Spustenie na najnovšej verzii Ubuntu
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Stiahne kód repozitára
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Nastaví prostredie Python
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      # 3. Nainštaluje systémové závislosti pre Kivy
+      - name: Install system dependencies for Kivy
+        run: |
+          sudo apt-get update
+          # Tieto balíčky sú potrebné pre správnu kompiláciu a beh Kivy (OpenGL, SDL2)
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            python3-dev \
+            libgl1-mesa-dev
+
+      # 4. Nainštaluje Kivy a KivyMD 'dev' verziu
+      - name: Install Kivy and KivyMD (2.0.1 dev from master)
+        run: |
+          # Nainštaluje Kivy cez pip
+          pip install kivy
+          # Nainštaluje KivyMD priamo z master vetvy, aby sa zabezpečila najnovšia 'dev' verzia
+          # Ak by si potreboval stabilnú verziu z PyPI, použil by si len: pip install kivymd
+          pip install git+https://github.com/kivymd/KivyMD.git@master
+          # Voliteľne, nainštaluje Pillow pre prípadné operácie s obrázkami
+          pip install Pillow
+
+      # 5. Spustí test aplikácie (alebo linter/statickú analýzu)
+      - name: Run KivyMD application code test
+        run: |
+          # Nastaví premennú prostredia, aby Kivy nespúšťalo grafické okno (žiadny X server v CI)
+          # Týmto sa otestuje, či sa aplikácia správne načíta a spracuje KV kód.
+          KIVY_NO_WINDOW=1 python app.py
+        env:
+          KIVY_NO_WINDOW: 1
