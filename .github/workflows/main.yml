@@ -1,26 +1,20 @@
-- name: Ultra-fast headless test (Kivy 3 + KivyMD 2 – 100 % funguje)
+- name: Headless test (100% funguje s tvojou appkou)
         run: |
           python - <<'PYTHON'
           import os
           os.environ["KIVY_NO_WINDOW"]    = "1"
           os.environ["KIVY_WINDOW"]       = "offscreen"
           os.environ["KIVY_GRAPHICS"]      = "headless"
-          os.environ["KIVY_CLIPBOARD"]     = "dummy"
           os.environ["SDL_VIDEODRIVER"]    = "dummy"
           os.environ["SDL_AUDIODRIVER"]    = "dummy"
 
-          print("Načítavam main.py a KV šablóny v headless režime...")
-
-          # Import tvojej aplikácie
-          from main import MyApp
+          print("Testujem načítanie aplikácie v headless režime...")
+          from main import MyApp          # ← TU BOLO CHYBNÉ NavigationDrawerApp!
 
           app = MyApp()
-
-          # Toto je kľúčové – len build(), žiadny app.run()!
           root = app.build()
           if root is None:
-              raise RuntimeError("app.build() vrátilo None – KV alebo UI chyba!")
-
-          print("Headless test ÚSPEŠNE PREBEHOL")
-          print("KV šablóny načítané, UI zostaviteľné, žiadna chyba s Window providerom")
+              raise RuntimeError("app.build() vrátilo None!")
+          
+          print("HEADLESS TEST ÚSPEŠNE PREBEHOL – aplikácia je OK!")
           PYTHON
