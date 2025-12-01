@@ -25,10 +25,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install System Dependencies (for Kivy)
+      # ZMENA: Pridaná knižnica libcairo2-dev pre vyriešenie chyby pycairo
+      - name: Install System Dependencies (for Kivy and Cairo)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev pkg-config
+          sudo apt-get install -y \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            pkg-config \
+            libcairo2-dev # Zabezpečí, že knižnica Cairo je dostupná pre Meson build pycairo
 
       - name: Install Kivy and KivyMD (using master branch for dev version)
         run: |
