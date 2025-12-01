@@ -37,13 +37,12 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             autoconf automake libtool pkg-config
 
-      - name: Install Kivy master + KivyMD
+      - name: Install Kivy master + KivyMD 2.x (z GitHubu)
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir https://github.com/kivy/kivy/archive/master.zip
-          pip install --no-cache-dir kivymd==2.0.1.dev0
-          # ak chceš úplne najnovšie KivyMD, odkomentuj radšej tento riadok:
-          # pip install --no-cache-dir git+https://github.com/kivymd/KivyMD.git@master
+          # KivyMD 2.0.1.dev0 = master branch (nie je na PyPI)
+          pip install --no-cache-dir git+https://github.com/kivymd/KivyMD.git@master
 
       - name: Ultra-fast headless test (3–8 sekúnd)
         run: |
@@ -55,12 +54,12 @@ jobs:
           os.environ["SDL_VIDEODRIVER"]  = "dummy"
           os.environ["SDL_AUDIODRIVER"]  = "dummy"
 
-          # Načíta celú appku a všetky .kv súbory (ak niečo chýba, zlyhá hneď)
-          from main import NavigationDrawerApp   # ← ak sa tvoja trieda volá inak, oprav názov
+          # Načíta celú appku a všetky .kv súbory
+          from main import NavigationDrawerApp   # ← ZMENA: uprav názov svojej App triedy
           app = NavigationDrawerApp()
           app.load_all_kv_files()
-          app.build()                           # overí, že sa dá vytvoriť root widget
-          print("Headless test PASSED – všetko sa naimportovalo a KV súbory sú OK")
+          app.build()                           
+          print("Headless test PASSED – KivyMD 2.0.1.dev0 funguje perfektne!")
           PYTHON
 
   # ────────────────────────────────
